@@ -176,3 +176,261 @@ def validate_and_filter(
     }
 
     return after_amount, invalid_count, summary
+
+def calculate_total_revenue(transactions):
+    """
+    Calculates total revenue from all transactions.
+    
+    Returns: float (total revenue)
+    
+    Expected Output: sum of (Quantity * UnitPrice)
+    """
+    total_revenue = 0.0
+    for tx in transactions:
+        try:
+            quantity = int(tx.get("Quantity", 0))
+            unit_price = float(tx.get("UnitPrice", 0.0))
+            total_revenue += quantity * unit_price
+        except (ValueError, TypeError):
+            continue
+    return total_revenue
+
+def region_wise_sales(transactions):
+    """
+    Analyzes sales by region.
+    
+    Returns: dictionary with region statistics sorted by total_sales descending.
+    """
+    region_stats = {}
+    grand_total = 0.0
+    
+    for tx in transactions:
+        try:
+            region = tx.get("Region")
+            quantity = int(tx.get("Quantity", 0))
+            unit_price = float(tx.get("UnitPrice", 0.0))
+            amount = quantity * unit_price
+        except (ValueError, TypeError):
+            continue
+        
+        if region not in region_stats: 
+            region_stats[region] = {"total_sales": 0.0, "transaction_count": 0}
+        
+        region_stats[region]["total_sales"] += amount
+        region_stats[region]["transaction_count"] += 1
+        grand_total += amount
+        
+    for region in region_stats:
+        if grand_total > 0:
+            region_stats[region]["percentage"]= round(
+                (region_stats[region]["total_sales"]/ grand_total) *100,2
+            )
+        else:
+            region_stats[region]["percentage"] = 0.0
+    
+    sorted_region_stats = dict(
+        sorted(region_stats.items(), key=lambda item: item[1]["total_sales"], reverse=True)
+    )
+    
+    return sorted_region_stats
+
+
+def top_selling_products(transactions, n =5):
+    """
+    Finds top n products by total quantity sold.
+    
+    Returns: list of tuples (ProductName, TotalQuantity, TotalRevenue)
+    Sorted by TotalQuantity descending.
+    """
+    
+    product_stats = {}
+    
+    for tx in transactions:
+        try:
+            product_name = tx.get("ProductName")
+            quantity = int(tx.get("Quantity", 0))
+            unit_price = float(tx.get("UnitPrice", 0.0))
+            revenue = quantity * unit_price
+        except (ValueError, TypeError):
+            continue
+        
+        if product_name not in product_stats:
+            product_stats[product_name] = {"total_quantity": 0, "total_revenue": 0.0}
+            
+        product_stats[product_name]["total_quantity"] += quantity
+        product_stats[product_name]["total_revenue"] += revenue
+        
+    sorted_products = sorted(
+        product_stats.items(),
+        key=lambda item: item[1]["total_quantity"],
+        reverse=True,
+    )
+    
+    result =[]
+    for product_name, stats in sorted_products[:n]:
+        result.append((product_name, stats["total_quantity"], stats["total_revenue"]))
+        
+    return result
+
+
+def customer_analysis(transactions):
+    """
+    Analyzes customer purchase patterns.
+    
+    Returns: dictionary sorted by total_spent descending
+    {
+        'C001' : {
+            'total_spent': 95000.0,
+            'purchase_count': 3,
+            'avg_order_value': 31666.67,
+            'products_bought': ['Laptop', 'Mouse']
+        },
+        ...
+    }
+    """
+    
+    customer_stats = {}
+    
+    for tx in transactions:
+        try:
+            customer_id = tx.get("CustomerID")
+            product_name = tx.get("ProductName")
+            quantity = int(tx.get("Quantity", 0))
+            unit_price = float(tx.get("UnitPrice", 0.0))
+            amount = quantity * unit_price
+        except (ValueError, TypeError):
+            continue
+        
+        if customer_id not in customer_stats:
+            customer_stats[customer_id] = {
+                "total_spent": 0.0,
+                "purchase_count": 0,
+                "products_bought": set(),
+            }
+        
+        customer_stats[customer_id]["total_spent"] += amount
+        customer_stats[customer_id]["purchase_count"] += 1
+        
+        if product_name is not None and str(product_name).strip() != "":
+            customer_stats[customer_id]["products_bought"].add(product_name)
+    
+    for cid, stats in customer_stats.items():
+        count = stats["purchase_count"]
+        stats["avg_order_value"] = round(stats["total_spent"] / count, 2) if count > 0 else 0.0
+        stats["products_bought"] = sorted(list(stats["products_bought"]))
+        
+    sorted_customer_stats = dict(
+        sorted(customer_stats.items(), key=lambda item: item[1]["total_spent"], reverse=True)
+    )
+    return sorted_customer_stats
+
+
+
+def  daily_sales_trend(transactions):
+    """
+    Analyzes sales trends by date.
+    
+    Returns: dictionary sorted by date (chronological)
+    {
+        '2024-12-01': {'revenue': ..., 'transaction_count': ..., 'unique_customers': ...},
+        ...
+    }
+    """
+    daily = {}
+    
+    for tx in transactions:
+        try:
+            date = tx.get("Date")
+            customer_id = tx.get("CustomerID")
+            quantity = int(tx.get("Quantity", 0))
+            unit_price = float(tx.get("UnitPrice", 0.0))
+            amount = quantity * unit_price
+        except(ValueError, TypeError):
+            continue
+        
+        if date not in daily:
+            daily[date] = {
+                "revenue": 0.0,
+                "transaction_count": 0,
+                "unique_customers": set(),
+                }    
+        
+        daily[date]["revenue"] += amount
+        daily[date]["transaction_count"] += 1
+        
+        if customer_id is not None and str(customer_id).strip() != "":
+            daily[date]["unique_customers"].add(customer_id)
+    
+    for date in daily:
+        daily[date]["unique_customers"] = len(daily[date]["unique_customers"])
+        
+    sorted_daily = dict(sorted(daily.items(), key=lambda item: item[0]))
+    return sorted_daily
+
+
+def find_peak_sales_day(transactions):
+    """
+    Identifies the date with highest revenue.
+    
+    Returns: tuple (date, revenue, transactions_count)
+    Example: ('2024-12-15', 185000.0, 12)
+    """
+    daily_totals = {}
+    
+    for tx in transactions:
+        try:
+            date  = tx.get("Date")
+            quantity = int(tx.get("Quantity", 0))
+            unit_price = float(tx.get("UnitPrice", 0.0))
+            amount = quantity * unit_price
+        except (ValueError, TypeError):
+            continue
+        
+        if date not in daily_totals:
+            daily_totals[date] = {"revenue": 0.0, "transaction_count": 0}
+            
+        daily_totals[date]["revenue"] += amount
+        daily_totals[date]["transaction_count"] +1
+        
+    if not daily_totals:
+        return None, 0.0, 0
+    
+    peak_date, stats = max(daily_totals.items(), key=lambda item: item[1]["revenue"])
+    return peak_date, stats["revenue"], stats["transaction_count"]
+
+
+def low_performing_products(transactions, threshold=10):
+    """
+    Identifies prroducts with low sales (total quantity < threshold).
+    
+    Returns: list od tuples (ProductName, TotalQuantity, TotalRevenue)
+    Sorted by TotalQuanitty ascending.
+    """
+    
+    product_stats = {}
+    
+    for tx in transactions:
+        try:
+            product_name = tx.get("ProductName")
+            quantity = int(tx.get("Quantity", 0))
+            unit_price =float(tx.get("UnitPrice", 0.0))
+            revenue = quantity * unit_price
+        except(ValueError, TypeError):
+            continue
+        
+        if product_name not in product_stats:
+            product_stats[product_name]= {"total_quantity": 0, "total_revenue": 0.0}
+        
+        product_stats[product_name]["total_quantity"] += quantity
+        product_stats[product_name]["total_revenue"] += revenue
+        
+    low_products = [
+        (name, stats["total_quantity"], stats["total_revenue"])
+        for name, stats in product_stats.items()
+        if stats["total_quantity"] < threshold
+    ]
+    
+    low_products.sort(key=lambda item: item[1])
+    return low_products
+
+    
